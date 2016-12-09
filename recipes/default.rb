@@ -133,7 +133,7 @@ end # End fair-scheduler.xml
       directory "/var/log/hadoop-#{log_dir}" do
         action :delete
         recursive true
-        not_if "test -L /var/log/hadoop-#{log_dir}"
+        not_if "test -e /var/log/hadoop-#{log_dir}"
       end
       # HDP 2.2+ moves the default log directories
       directory "/var/log/hadoop/#{log_dir}" do
