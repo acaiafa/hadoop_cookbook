@@ -43,6 +43,7 @@ end
 
 pkgs.each do |pkg|
   package pkg do
+    options '--nogpgcheck'
     action :install
   end
 end
