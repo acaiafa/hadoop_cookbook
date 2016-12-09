@@ -144,11 +144,12 @@ end # End fair-scheduler.xml
       # symlink default log directory
       link "/var/log/hadoop-#{log_dir}" do
         to node['hadoop'][envfile]["#{svc}_log_dir"]
+        only_if { node['hadoop'][envfile]["#{svc}_log_dir"] != "/var/log/hadoop-#{log_dir}"}
       end
       # symlink HDP 2.2 log directory
       link "/var/log/hadoop/#{log_dir}" do
         to node['hadoop'][envfile]["#{svc}_log_dir"]
-        only_if { hdp22? && node['platform_family'] == 'rhel' }
+        only_if { hdp22? && node['platform_family'] == 'rhel' && node['hadoop'][envfile]["#{svc}_log_dir"] != "/var/log/hadoop/#{log_dir}"}
       end
     end
     # rubocop:enable Style/Next
