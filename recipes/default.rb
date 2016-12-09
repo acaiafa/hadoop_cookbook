@@ -1,8 +1,8 @@
 #
 # Cookbook Name:: hadoop
-# Attribute:: default
+# Recipe:: default
 #
-# Copyright © 2013-2016 Cask Data, Inc.
+# Copyright © 2013-2015 Cask Data, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,149 +17,288 @@
 # limitations under the License.
 #
 
-###
-# cookbook settings
-###
-# Supported: cdh, hdp, bigtop, iop
-default['hadoop']['distribution'] = 'hdp'
+include_recipe 'hadoop::repo'
+include_recipe 'hadoop::_hadoop_checkconfig'
+include_recipe 'hadoop::_compression_libs'
 
-# Set defaults for version, based on distribution
-default['hadoop']['distribution_version'] =
-  if node['hadoop'].key?('distribution_version')
-    node['hadoop']['distribution_version']
-  elsif node['hadoop']['distribution'] == 'hdp'
-    '2.3.4.7'
-  elsif node['hadoop']['distribution'] == 'cdh'
-    '5.6.0'
-  elsif node['hadoop']['distribution'] == 'bigtop'
-    '1.0.0'
-  elsif node['hadoop']['distribution'] == 'iop'
-    '4.1.0.0'
-  end
-
-default['hadoop']['force_format'] = false
-
-# Default: conf.chef
-default['hadoop']['conf_dir'] = 'conf.chef'
-default['flume']['conf_dir'] = node['hadoop']['conf_dir']
-default['hadoop_kms']['conf_dir'] = node['hadoop']['conf_dir']
-default['hbase']['conf_dir'] = node['hadoop']['conf_dir']
-default['hive']['conf_dir'] = node['hadoop']['conf_dir']
-default['oozie']['conf_dir'] = node['hadoop']['conf_dir']
-default['spark']['conf_dir'] = node['hadoop']['conf_dir']
-default['storm']['conf_dir'] = node['hadoop']['conf_dir']
-default['tez']['conf_dir'] = node['hadoop']['conf_dir']
-default['zookeeper']['conf_dir'] = node['hadoop']['conf_dir']
-
-# limits.d settings
-default['hadoop']['limits']['nofile'] = '32768'
-default['hadoop']['limits']['nproc'] = '65536'
-
-# net.ipv4.ip_local_reserved_ports setting (COOK-79)
-default['hadoop']['sysctl']['net.ipv4.ip_local_reserved_ports'] = []
-
-###
-# core-site.xml settings
-###
-default['hadoop']['core_site']['fs.defaultFS'] = "hdfs://#{node['fqdn']}"
-
-###
-# yarn-site.xml settings
-###
-default['hadoop']['yarn_site']['yarn.resourcemanager.hostname'] = node['fqdn']
-default['hadoop']['yarn_site']['yarn.scheduler.increment-allocation-vcores'] = '1'
-
-# Ensure yarn.scheduler.minimum-allocation-mb >= yarn.scheduler.increment-allocation-mb
-default['hadoop']['yarn_site']['yarn.scheduler.minimum-allocation-mb'] = '1024'
-default['hadoop']['yarn_site']['yarn.scheduler.increment-allocation-mb'] =
-  if node['hadoop']['yarn_site']['yarn.scheduler.minimum-allocation-mb'].to_i < 1024
-    node['hadoop']['yarn_site']['yarn.scheduler.minimum-allocation-mb']
-  else
-    '1024'
-  end
-
-# Set yarn.application.classpath
-default['hadoop']['yarn_site']['yarn.application.classpath'] =
-  if node['hadoop']['distribution'] == 'hdp' && node['hadoop']['distribution_version'].to_f >= 2.2
-    '/etc/hadoop/conf,/usr/hdp/current/hadoop-client/*,/usr/hdp/current/hadoop-client/lib/*,/usr/hdp/current/hadoop-hdfs-client/*,/usr/hdp/current/hadoop-hdfs-client/lib/*,/usr/hdp/current/hadoop-yarn-client/*,/usr/hdp/current/hadoop-yarn-client/lib/*'
-  else
-    '$HADOOP_CONF_DIR, $HADOOP_COMMON_HOME/*, $HADOOP_COMMON_HOME/lib/*, $HADOOP_HDFS_HOME/*, $HADOOP_HDFS_HOME/lib/*, $HADOOP_MAPRED_HOME/*, $HADOOP_MAPRED_HOME/lib/*, $HADOOP_YARN_HOME/*, $HADOOP_YARN_HOME/lib/*'
-  end
-
-# Do the right thing, based on distribution
-if node['hadoop']['distribution'] == 'cdh' && node['hadoop']['distribution_version'].to_i == 4
-  # CDH4 doesn't have https://issues.apache.org/jira/browse/YARN-1229 fixed
-  default['hadoop']['yarn_site']['yarn.nodemanager.aux-services'] = 'mapreduce.shuffle'
-  default['hadoop']['yarn_site']['yarn.nodemanager.aux-services.mapreduce.shuffle.class'] = 'org.apache.hadoop.mapred.ShuffleHandler'
-else
-  default['hadoop']['yarn_site']['yarn.nodemanager.aux-services'] = 'mapreduce_shuffle'
-  default['hadoop']['yarn_site']['yarn.nodemanager.aux-services.mapreduce_shuffle.class'] = 'org.apache.hadoop.mapred.ShuffleHandler'
+package hadoop_package('hadoop-client') do
+  action :install
 end
 
-# MapReduce settings
-full_version =
-  case node['hadoop']['distribution_version']
-  when '2.2.0.0'
-    '2.2.0.0-2041'
-  when '2.2.1.0'
-    '2.2.1.0-2340'
-  when '2.2.4.2'
-    '2.2.4.2-2'
-  when '2.2.4.4'
-    '2.2.4.4-16'
-  when '2.2.6.0'
-    '2.2.6.0-2800'
-  when '2.2.6.3'
-    '2.2.6.3-1'
-  when '2.2.8.0'
-    '2.2.8.0-3150'
-  when '2.2.9.0'
-    '2.2.9.0-3393'
-  when '2.3.0.0'
-    '2.3.0.0-2557'
-  when '2.3.2.0'
-    '2.3.2.0-2950'
-  when '2.3.4.0'
-    '2.3.4.0-3485'
-  when '2.3.4.7'
-    '2.3.4.7-4'
-  when '2.3.6.0'
-    '2.3.6.0-3796'
-  when '2.4.0.0'
-    '2.4.0.0-169'
-  when '2.4.2.0'
-    '2.4.2.0-258'
-  when '2.4.3.0'
-    '2.4.3.0-227'
-  when '2.5.0.0'
-    '2.5.0.0-1245'
-  when '2.5.3.0'
-    '2.5.3.0-37'
+libhdfs =
+  if node['platform_family'] == 'debian'
+    'libhdfs0'
   else
-    node['hadoop']['distribution_version']
+    hadoop_package('hadoop-libhdfs')
   end
 
-default['hadoop']['hadoop_env']['hadoop_opts'] = '-Djava.net.preferIPv4Stack=true ${HADOOP_OPTS}'
-default['hadoop']['mapred_env']['hadoop_opts'] = '-Djava.net.preferIPv4Stack=true ${HADOOP_OPTS}'
+package libhdfs do
+  action :install
+end
 
-if node['hadoop']['distribution'] == 'iop' ||
-  (
-    node['hadoop']['distribution'] == 'hdp' &&
-    node['hadoop']['distribution_version'].to_f >= 2.2
-)
+hadoop_conf_dir = "/etc/hadoop/#{node['hadoop']['conf_dir']}"
 
-distro = node['hadoop']['distribution']
-lzo_jar = distro == 'hdp' ? 'hadoop-lzo-0.6.0.${hdp.version}.jar' : 'hadoop-lzo-0.5.1.jar'
-default['hadoop']['hadoop_env']['hadoop_opts'] += " -D#{distro}.version=#{full_version}"
-default['hadoop']['mapred_env']['hadoop_opts'] += " -D#{distro}.version=#{full_version}"
-default['hadoop']['mapred_site']['mapreduce.admin.map.child.java.opts'] =
-  "-server -Djava.net.preferIPv4Stack=true -D#{distro}.version=${#{distro}.version}"
-default['hadoop']['mapred_site']['mapreduce.admin.user.env'] =
-  "LD_LIBRARY_PATH=/usr/#{distro}/${#{distro}.version}/hadoop/lib/native:/usr/#{distro}/${#{distro}.version}/hadoop/lib/native/Linux-amd64-64"
-default['hadoop']['mapred_site']['mapreduce.application.framework.path'] =
-  "/#{distro}/apps/${#{distro}.version}/mapreduce/mapreduce.tar.gz#mr-framework"
-default['hadoop']['mapred_site']['mapreduce.application.classpath'] =
-  "$PWD/mr-framework/hadoop/share/hadoop/mapreduce/*:$PWD/mr-framework/hadoop/share/hadoop/mapreduce/lib/*:$PWD/mr-framework/hadoop/share/hadoop/common/*:$PWD/mr-framework/hadoop/share/hadoop/common/lib/*:$PWD/mr-framework/hadoop/share/hadoop/yarn/*:$PWD/mr-framework/hadoop/share/hadoop/yarn/lib/*:$PWD/mr-framework/hadoop/share/hadoop/hdfs/*:$PWD/mr-framework/hadoop/share/hadoop/hdfs/lib/*:/usr/#{distro}/${#{distro}.version}/hadoop/lib/#{lzo_jar}:/etc/hadoop/conf/secure"
-default['hadoop']['mapred_site']['yarn.app.mapreduce.am.admin-command-opts'] =
-  "-D#{distro}.version=${#{distro}.version}"
+directory hadoop_conf_dir do
+  mode '0755'
+  owner 'root'
+  group 'root'
+  action :create
+  recursive true
+end
+
+# Setup capacity-scheduler.xml core-site.xml hadoop-policy.xml hdfs-site.xml mapred-site.xml yarn-site.xml
+%w(capacity_scheduler core_site hadoop_policy hdfs_site mapred_site yarn_site).each do |sitefile|
+  template "#{hadoop_conf_dir}/#{sitefile.tr('_', '-')}.xml" do
+    source 'generic-site.xml.erb'
+    mode '0644'
+    owner 'root'
+    group 'root'
+    action :create
+    variables options: node['hadoop'][sitefile]
+    only_if { node['hadoop'].key?(sitefile) && !node['hadoop'][sitefile].empty? }
+  end
+end # End capacity-scheduler.xml core-site.xml hadoop-policy.xml hdfs-site.xml mapred-site.xml yarn-site.xml
+
+# Setup fair-scheduler.xml
+fair_scheduler_file =
+  if node['hadoop'].key?('yarn_site') && node['hadoop']['yarn_site'].key?('yarn.scheduler.fair.allocation.file')
+    node['hadoop']['yarn_site']['yarn.scheduler.fair.allocation.file']
+  else
+    "#{hadoop_conf_dir}/fair-scheduler.xml"
+  end
+
+# This is a bit redundant, but necessary to pass foodcritic testing without duplicating resources
+fair_scheduler_dir = File.dirname(fair_scheduler_file.gsub('file://', ''))
+unless fair_scheduler_dir == hadoop_conf_dir
+  directory fair_scheduler_dir do
+    mode '0755'
+    owner 'root'
+    group 'root'
+    action :create
+    recursive true
+    not_if { fair_scheduler_dir == hadoop_conf_dir }
+  end
+end
+
+template fair_scheduler_file.gsub('file://', '') do
+  source 'fair-scheduler.xml.erb'
+  mode '0644'
+  owner 'root'
+  group 'root'
+  action :create
+  variables node['hadoop']['fair_scheduler']
+  only_if { node['hadoop'].key?('fair_scheduler') && !node['hadoop']['fair_scheduler'].empty? }
+end # End fair-scheduler.xml
+
+# Setup hadoop-env.sh mapred-env.sh yarn-env.sh
+%w(hadoop_env mapred_env yarn_env).each do |envfile|
+  %w(hadoop hadoop_mapred yarn).each do |svc|
+    # Keep next here, in case envfile isn't set, so we don't NPE on directory resource
+    next unless node['hadoop'].key?(envfile) && node['hadoop'][envfile].key?("#{svc}_log_dir")
+    # Create directory
+    directory node['hadoop'][envfile]["#{svc}_log_dir"] do
+      log_dir_owner =
+        if svc == 'hadoop_mapred'
+          'mapred'
+        elsif svc == 'hadoop'
+          'hdfs'
+        else
+          svc
+        end
+      owner log_dir_owner
+      group 'hadoop'
+      mode '0775'
+      action :create
+      recursive true
+    end
+    log_dir =
+      case svc
+      when 'hadoop'
+        'hdfs'
+      when 'hadoop_mapred'
+        'mapred'
+      else
+        svc
+      end
+    default_log_dir =
+      if hdp22? && node['platform_family'] == 'rhel'
+        "/var/log/hadoop/#{log_dir}"
+      else
+        "/var/log/hadoop-#{log_dir}"
+      end
+    # Prevent duplicate resources
+    # rubocop:disable Style/Next
+    unless node['hadoop'][envfile]["#{svc}_log_dir"] == default_log_dir
+      # Delete default directory, if we aren't set to it
+      directory "/var/log/hadoop-#{log_dir}" do
+        action :delete
+        recursive true
+        not_if "test -L /var/log/hadoop-#{log_dir}"
+      end
+      # HDP 2.2+ moves the default log directories
+      directory "/var/log/hadoop/#{log_dir}" do
+        action :delete
+        recursive true
+        not_if "test -L /var/log/hadoop/#{log_dir}"
+      end
+      # symlink default log directory
+      link "/var/log/hadoop-#{log_dir}" do
+        to node['hadoop'][envfile]["#{svc}_log_dir"]
+      end
+      # symlink HDP 2.2 log directory
+      link "/var/log/hadoop/#{log_dir}" do
+        to node['hadoop'][envfile]["#{svc}_log_dir"]
+        only_if { hdp22? && node['platform_family'] == 'rhel' }
+      end
+    end
+    # rubocop:enable Style/Next
+  end
+
+  template "#{hadoop_conf_dir}/#{envfile.tr('_', '-')}.sh" do
+    source 'generic-env.sh.erb'
+    mode '0755'
+    owner 'root'
+    group 'root'
+    action :create
+    variables options: node['hadoop'][envfile]
+    only_if { node['hadoop'].key?(envfile) && !node['hadoop'][envfile].empty? }
+  end
+end # End hadoop-env.sh yarn-env.sh
+
+# Setup hadoop-metrics.properties hadoop-metrics2.properties log4j.properties
+%w(hadoop_metrics hadoop_metrics2 log4j).each do |propfile|
+  template "#{hadoop_conf_dir}/#{propfile.tr('_', '-')}.properties" do
+    source 'generic.properties.erb'
+    mode '0644'
+    owner 'root'
+    group 'root'
+    action :create
+    variables properties: node['hadoop'][propfile]
+    only_if { node['hadoop'].key?(propfile) && !node['hadoop'][propfile].empty? }
+  end
+end # End hadoop-metrics.properties hadoop-metrics2.properties log4j.properties
+
+# Setup container-executor.cfg
+template "#{hadoop_conf_dir}/container-executor.cfg" do
+  source 'generic.properties.erb'
+  mode '0400'
+  owner 'root'
+  group 'root'
+  action :create
+  variables properties: node['hadoop']['container_executor']
+  only_if { node['hadoop'].key?('container_executor') && !node['hadoop']['container_executor'].empty? }
+end # End container-executor.cfg
+
+# Set hadoop.tmp.dir
+hadoop_tmp_dir =
+  if node['hadoop'].key?('core_site') && node['hadoop']['core_site'].key?('hadoop.tmp.dir')
+    node['hadoop']['core_site']['hadoop.tmp.dir']
+  else
+    'file:///tmp/hadoop-${user}'
+  end
+
+node.default['hadoop']['core_site']['hadoop.tmp.dir'] = hadoop_tmp_dir
+
+if node['hadoop']['core_site']['hadoop.tmp.dir'] == 'file:///tmp/hadoop-${user}'
+  %w(hdfs mapreduce yarn).each do |dir|
+    directory "/tmp/hadoop-#{dir}" do
+      mode '1777'
+      my_user =
+        if dir == 'mapreduce'
+          'mapred'
+        else
+          dir
+        end
+      owner my_user
+      group my_user
+      action :create
+      recursive true
+    end
+  end
+elsif node['hadoop']['core_site']['hadoop.tmp.dir'] =~ /${user}/
+  # Since we're creating a 1777 directory, Hadoop can create the user-specific subdirectories, itself
+  directory File.dirname(hadoop_tmp_dir.gsub('file://', '')) do
+  mode '1777'
+  action :create
+  recursive true
+  end
+else
+  directory hadoop_tmp_dir.gsub('file://', '') do
+    mode '1777'
+    action :create
+    recursive true
+  end
+end # End hadoop.tmp.dir
+
+jsvc_home =
+  if node['hadoop']['distribution'] == 'hdp' && node['hadoop']['distribution_version'].to_f == 2.0 &&
+    node['hadoop']['distribution_version'].to_s != '2' # Only '2' means latest 2.x release
+'/usr/libexec/bigtop-utils'
+  else
+    '/usr/lib/bigtop-utils'
+  end
+
+# Create /etc/default/hadoop
+template '/etc/default/hadoop' do
+  source 'generic-env.sh.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+  action :create
+  variables options: {
+    'hadoop_home_warn_suppress' => true,
+    'hadoop_home' => "#{hadoop_lib_dir}/hadoop",
+    'hadoop_prefix' => "#{hadoop_lib_dir}/hadoop",
+    'hadoop_libexec_dir' => "#{hadoop_lib_dir}/hadoop/libexec",
+    'hadoop_conf_dir' => '/etc/hadoop/conf',
+    'hadoop_common_home' => "#{hadoop_lib_dir}/hadoop",
+    'hadoop_hdfs_home' => "#{hadoop_lib_dir}/hadoop-hdfs",
+    'hadoop_mapred_home' => "#{hadoop_lib_dir}/hadoop-mapreduce",
+    'hadoop_yarn_home' => "#{hadoop_lib_dir}/hadoop-yarn",
+    'jsvc_home' => jsvc_home
+  }
+end
+
+# limits.d settings
+%w(hdfs mapred yarn).each do |u|
+  ulimit_domain u do
+    node['hadoop']['limits'].each do |k, v|
+      rule do
+        item k
+        type '-'
+        value v
+      end
+    end
+    only_if { node['hadoop'].key?('limits') && !node['hadoop']['limits'].empty? }
+  end
+end # End limits.d
+
+# Remove extra mapreduce file, if it exists
+file '/etc/security/limits.d/mapreduce.conf' do
+  action :delete
+end
+
+# Another Hortonworks mess to clean up, their packages force-install blank configs here
+directory '/etc/hadoop/conf' do
+  action :delete
+  recursive true
+  not_if 'test -L /etc/hadoop/conf'
+end
+
+# Update alternatives to point to our configuration
+execute 'update hadoop-conf alternatives' do
+  command "update-alternatives --install /etc/hadoop/conf hadoop-conf /etc/hadoop/#{node['hadoop']['conf_dir']} 50"
+  not_if "update-alternatives --display hadoop-conf | grep best | awk '{print $5}' | grep /etc/hadoop/#{node['hadoop']['conf_dir']}"
+end
+
+# Export hadoop environment variables
+template '/etc/profile.d/hadoop.sh' do
+  source 'generic-env.sh.erb'
+  mode '0755'
+  owner 'root'
+  group 'root'
+  variables options: {
+    'hadoop_conf_dir' => "/etc/hadoop/#{node['hadoop']['conf_dir']}",
+    'yarn_conf_dir' => "/etc/hadoop/#{node['hadoop']['conf_dir']}"
+  }
 end
