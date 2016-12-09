@@ -80,8 +80,9 @@ when 'hdp'
     yum_base_url = 'http://public-repo-1.hortonworks.com/HDP'
     os = if major_platform_version == 5 || hdp_version.to_f >= 2.3
            "centos#{major_platform_version}"
-         elsif major_platform_version == 7
-           'centos7'
+           #rhel7 repo does not work 
+    #     elsif major_platform_version == 7
+    #       'centos7'
          else 
            'centos6'
          end
