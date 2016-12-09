@@ -58,6 +58,8 @@ module Hadoop
         '2.4.3.0-227'
       when '2.5.0.0'
         '2.5.0.0-1245'
+      when '2.5.3.0'
+        '2.5.3.0-37'
       else
         node['hadoop']['distribution_version']
       end
@@ -144,10 +146,10 @@ module Hadoop
       if node[service].key?('jaas')
         %w(client server).each do |key|
           next unless node[service]['jaas'].key?(key) &&
-                      node[service]['jaas'][key].key?('usekeytab') &&
-                      node[service]['jaas'][key]['usekeytab'].to_s == 'true'
+            node[service]['jaas'][key].key?('usekeytab') &&
+            node[service]['jaas'][key]['usekeytab'].to_s == 'true'
           next unless node[service]['jaas'][key]['keytab'].nil? ||
-                      node['hbase']['jaas'][key]['principal'].nil?
+            node['hbase']['jaas'][key]['principal'].nil?
           Chef::Application.fatal!("You must set node['#{service}']['jaas']['#{key}']['keytab'] and node['#{service}']['jaas']['#{key}']['principal'] with node['#{service}']['jaas'][key]['usekeytab']")
         end
       end
@@ -162,10 +164,10 @@ module Hadoop
         next unless node[service].key?("#{type}_jaas")
         %w(client server).each do |key| # These are JAAS keys, not files
           next unless node[service]["#{type}_jaas"].key?(key) &&
-                      node[service]["#{type}_jaas"][key].key?('usekeytab') &&
-                      node[service]["#{type}_jaas"][key]['usekeytab'].to_s == 'true'
+            node[service]["#{type}_jaas"][key].key?('usekeytab') &&
+            node[service]["#{type}_jaas"][key]['usekeytab'].to_s == 'true'
           next unless node[service]["#{type}_jaas"][key]['keytab'].nil? ||
-                      node[service]["#{type}_jaas"][key]['principal'].nil?
+            node[service]["#{type}_jaas"][key]['principal'].nil?
           Chef::Application.fatal!("You must set node['#{service}']['#{type}_jaas']['#{key}']['keytab'] and node['#{service}']['#{type}_jaas']['#{key}']['principal'] with node['#{service}']['#{type}_jaas'][key]['usekeytab']")
         end
       end
@@ -176,7 +178,7 @@ module Hadoop
     #
     def write_deprecated_jaas_config(service)
       return unless node[service].key?('jaas') &&
-                    node[service]['jaas'].key?('client')
+        node[service]['jaas'].key?('client')
       conf_dir = "/etc/#{service}/#{node[service]['conf_dir']}"
       template "#{conf_dir}/jaas.conf" do
         source 'jaas.conf.erb'
@@ -198,7 +200,7 @@ module Hadoop
       # Setup client_jaas.conf master_jaas.conf
       %w(client master).each do |type|
         next unless node[service].key?("#{type}_jaas") &&
-                    node[service]["#{type}_jaas"].key?('client')
+          node[service]["#{type}_jaas"].key?('client')
         conf_dir = "/etc/#{service}/#{node[service]['conf_dir']}"
         template "#{conf_dir}/#{type}_jaas.conf" do
           source 'jaas.conf.erb'
