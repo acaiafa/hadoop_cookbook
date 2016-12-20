@@ -19,7 +19,15 @@
 
 include_recipe 'hadoop::default'
 include_recipe 'hadoop::_system_tuning'
-pkg = 'hadoop-yarn-nodemanager'
+pkg = 
+  case node['hadoop']['distribution_version']
+  when '2.2.0.0'
+    'hadoop_2_2_0_0_2041-yarn-nodemanager'
+  when '2.5.3.0'
+    'hadoop_2_5_3_0_37-yarn-nodemanager'
+  else
+    'hadoop-yarn-nodemanager'
+  end
 
 %w(yarn.nodemanager.local-dirs yarn.nodemanager.log-dirs).each do |opt|
   next unless node['hadoop'].key?('yarn_site') && node['hadoop']['yarn_site'].key?(opt)

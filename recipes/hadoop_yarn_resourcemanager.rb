@@ -19,7 +19,15 @@
 
 include_recipe 'hadoop::default'
 include_recipe 'hadoop::_system_tuning'
-pkg = 'hadoop-yarn-resourcemanager'
+pkg = 
+  case node['hadoop']['distribution_version']
+  when '2.2.0.0'
+    'hadoop_2_2_0_0_2041-yarn-resourcemanager'
+  when '2.5.3.0'
+    'hadoop_2_5_3_0_37-yarn-resourcemanager'
+  else
+    'hadoop-yarn-resourcemanager'
+  end
 
 # TODO: check for these and set them up
 # mapreduce.cluster.local.dir = #{hadoop_tmp_dir}/mapred/local

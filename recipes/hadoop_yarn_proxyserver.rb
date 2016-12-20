@@ -24,7 +24,15 @@ if node['hadoop'].key?('yarn_site') && node['hadoop']['yarn_site'].key?('yarn.we
 else
   Chef::Application.fatal!("YARN Web Proxy must be configured! Set default['hadoop']['yarn_site']['yarn.web-proxy.address']}!")
 end
-pkg = 'hadoop-yarn-proxyserver'
+pkg =
+  case node['hadoop']['distribution_version']
+  when '2.2.0.0'
+    'hadoop_2_2_0_0_2041-yarn-proxyserver'
+  when '2.5.3.0'
+    'hadoop_2_5_3_0_37-yarn-proxyserver'
+  else
+    'hadoop-yarn-proxyserver'
+  end
 
 yarn_log_dir =
   if node['hadoop'].key?('yarn_env') && node['hadoop']['yarn_env'].key?('yarn_log_dir')
