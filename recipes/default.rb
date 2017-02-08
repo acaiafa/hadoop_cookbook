@@ -17,7 +17,7 @@
 # limitations under the License.
 #
 
-#include_recipe 'hadoop::repo'
+include_recipe 'hadoop::repo'
 include_recipe 'hadoop::_hadoop_checkconfig'
 include_recipe 'hadoop::_compression_libs'
 
