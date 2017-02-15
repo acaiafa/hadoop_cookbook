@@ -25,7 +25,7 @@ include_recipe 'hadoop::_compression_libs'
 #  action :install
 #end
 
-package 'hadoop_2_5_3_0_37-client-2.7.3.2.5.3.0-37' do
+package 'hadoop_2_5_3_0_37-client' do
   action :install
 end
 
