@@ -162,7 +162,7 @@ end
 ###
 
 ports = ports.uniq.sort.to_s.tr(' ', '').tr('[', '').tr(']', '') # De-dupe, Sort, and Stringify
-include_attribute 'sysctl'
+#include_attribute 'sysctl'
 
 # net.ipv4.ip_local_reserved_ports setting (COOK-79)
 if node['sysctl']['params'].key?('net') && node['sysctl']['params']['net'].key?('ipv4') &&
